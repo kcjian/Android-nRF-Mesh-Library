@@ -22,11 +22,12 @@
 package no.nordicsemi.android.meshprovisioner.utils;
 
 import android.content.Context;
+import android.support.annotation.NonNull;
 import android.text.TextUtils;
+import android.util.SparseArray;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.HashMap;
 
 import no.nordicsemi.android.meshprovisioner.R;
 
@@ -37,7 +38,10 @@ public class MeshParserUtils {
     private static final int PROHIBITED_DEFAULT_TTL_STATE_MIN = 0x01;
     private static final int PROHIBITED_DEFAULT_TTL_STATE_MID = 0x80;
     private static final int PROHIBITED_DEFAULT_TTL_STATE_MAX = 0xFF;
+    public static final int USE_DEFAULT_TTL = 0xFF;
 
+    private static final int MIN_TTL = 0x00;
+    private static final int MAX_TTL = 0x7F;
     private static final int PROHIBITED_PUBLISH_TTL_MIN = 0x80;
     private static final int PROHIBITED_PUBLISH_TTL_MAX = 0xFE;
 
@@ -45,6 +49,14 @@ public class MeshParserUtils {
     private static final int IV_ADDRESS_MAX = 4096;
     private static final int UNICAST_ADDRESS_MIN = 0;
     private static final char[] HEX_ARRAY = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
+    public static final int RESOLUTION_100_MS = 0b00;
+    public static final int RESOLUTION_1_S = 0b01;
+    public static final int RESOLUTION_10_S = 0b10;
+    public static final int RESOLUTION_10_M = 0b11;
+
+    public static final byte[] DISABLED_PUBLICATION_ADDRESS = new byte[]{0x00, 0x00};
+    public static final int GENERIC_ON_OFF_5_MS = 5;
 
     public static String bytesToHex(final byte[] bytes, final boolean add0x) {
         if (bytes == null)
@@ -97,8 +109,28 @@ public class MeshParserUtils {
         return value != null && value == (value & 0x7FFF);
     }
 
+    /**
+     * Validates a given group address
+     *
+     * @param address group address
+     * @return true if is valid and false otherwise
+     */
+    public static boolean isValidGroupAddress(@NonNull final byte[] address) {
+        if (address != null && address.length == 2) {
+            return (address[0] >= 0xC0 && address[0] <= 0xFF) && address[0] != 0xFF || !(address[1] >= 0x00 && address[1] <= 0xFB);
+        }
+        return false;
+    }
+
+    public static boolean isValidUnicastAddress(final byte[] value) {
+        if (value == null)
+            return false;
+        final int address = ((value[0] & 0xFF) << 8) | value[1] & 0xFF;
+        return address == (address & 0x7FFF);
+    }
+
     private static boolean isValidIvIndex(final Integer value) {
-        return value != null;
+        return value != null && (value >= 0 && value <= Integer.MAX_VALUE);
     }
 
     public static byte parseUpdateFlags(final int keyRefreshFlag, final int ivUpdateFlag) {
@@ -137,7 +169,7 @@ public class MeshParserUtils {
 
         if (ttlInput == null) {
             throw new IllegalArgumentException(context.getString(R.string.error_empty_global_ttl));
-        } else if (ttlInput == PROHIBITED_DEFAULT_TTL_STATE_MIN || (ttlInput >= PROHIBITED_DEFAULT_TTL_STATE_MID && ttlInput <= PROHIBITED_DEFAULT_TTL_STATE_MAX)) {
+        } else if (!isValidTtl(ttlInput)) {
             throw new IllegalArgumentException(context.getString(R.string.error_invalid_global_ttl));
         }
 
@@ -233,7 +265,7 @@ public class MeshParserUtils {
             throw new IllegalArgumentException(context.getString(R.string.error_invalid_iv_index));
         }
 
-        if (isValidIvIndex(ivIndex)) {
+        if (!isValidIvIndex(ivIndex)) {
             throw new IllegalArgumentException(context.getString(R.string.error_invalid_iv_index));
         }
 
@@ -375,14 +407,14 @@ public class MeshParserUtils {
     }
 
     public static byte[] getSrcAddress(final byte[] pdu) {
-        return ByteBuffer.allocate(2).put(pdu, 6, 2).array(); // get dst address from pdu
+        return ByteBuffer.allocate(2).put(pdu, 6, 2).array(); // get src address from pdu
     }
 
     public static byte[] getDstAddress(final byte[] pdu) {
         return ByteBuffer.allocate(2).put(pdu, 8, 2).array(); // get dst address from pdu
     }
 
-    private static int getSegmentedMessageLength(final HashMap<Integer, byte[]> segmentedMessageMap) {
+    private static int getSegmentedMessageLength(final SparseArray<byte[]> segmentedMessageMap) {
         int length = 0;
         for (int i = 0; i < segmentedMessageMap.size(); i++) {
             length += segmentedMessageMap.get(i).length;
@@ -390,7 +422,7 @@ public class MeshParserUtils {
         return length;
     }
 
-    public static byte[] concatenateSegmentedMessages(final HashMap<Integer, byte[]> segmentedMessages) {
+    public static byte[] concatenateSegmentedMessages(final SparseArray<byte[]> segmentedMessages) {
         final int length = getSegmentedMessageLength(segmentedMessages);
         final ByteBuffer completeBuffer = ByteBuffer.allocate(length);
         completeBuffer.order(ByteOrder.BIG_ENDIAN);
@@ -440,7 +472,7 @@ public class MeshParserUtils {
     }
 
     /**
-     * Returns the length of the opcode.
+     * Returns the vendor opcode packed with company identifier
      * If the MSB = 0 then the length is 1
      * If the MSB = 1 then the length is 2
      * If the MSB = 2 then the length is 3
@@ -448,20 +480,173 @@ public class MeshParserUtils {
      * @param opCode operation code
      * @return length of opcodes
      */
-    public static byte[] getOpCodes(final int opCode, final int companyIdentifier) {
+    public static byte[] createVendorOpCode(final int opCode, final int companyIdentifier) {
         if (companyIdentifier != 0xFFFF) {
-            return new byte[]{(byte) ((0b11 << 6) | opCode), (byte) (companyIdentifier & 0x00FF), (byte) ((companyIdentifier >> 8) & 0x00FF)};
+            //TODO nRF Mesh SDK implementation contains a bug related to endianness of the company identifier
+            //In order to get this working with the sdk you may have to switch the company identifier bytes here
+            return new byte[]{(byte) (0xC0 | (opCode & 0x3F)), (byte) (companyIdentifier & 0xFF), (byte) ((companyIdentifier >> 8) & 0xFF)};
         }
         return null;
     }
 
     /**
-     * Checks if the publish ttl value is within the allowed range
+     * Checks if the opcode is valid
+     *
+     * @param opCode opCode of mesh message
+     * @return if the opcode is valid
+     */
+    public static boolean isValidOpcode(final int opCode) throws IllegalArgumentException {
+        if (opCode != (opCode & 0xFFFFFF))
+            throw new IllegalArgumentException("Invalid opcode, opcode must be 1-3 octets");
+
+        return true;
+    }
+
+    /**
+     * Checks if the parameters are within the valid range
+     *
+     * @param parameters opCode of mesh message
+     * @return if the opcode is valid
+     */
+    public static boolean isValidParameters(final byte[] parameters) throws IllegalArgumentException {
+        if (parameters != null && parameters.length > 379)
+            throw new IllegalArgumentException("Invalid parameters, parameters must be 0-379 octets");
+
+        return true;
+    }
+
+    /**
+     * Checks if the ttl value is within the allowed range where the range is 0x00 - 0x7F
+     *
+     * @param ttl ttl
+     * @return true if valid and false otherwise
+     */
+    public static boolean isValidTtl(final int ttl) {
+        return (ttl >= MIN_TTL) && (ttl <= MAX_TTL);
+    }
+
+    /**
+     * Checks if the default publish ttl is used for publication
      *
      * @param publishTtl publish ttl
      * @return true if valid and false otherwise
      */
-    public static boolean validatePublishTtl(final int publishTtl) {
-        return (publishTtl < PROHIBITED_PUBLISH_TTL_MIN) || (publishTtl > PROHIBITED_PUBLISH_TTL_MAX);
+    public static boolean isDefaultPublishTtl(final int publishTtl) {
+        return publishTtl == USE_DEFAULT_TTL;
+    }
+
+    /**
+     * Checks if the retransmit count is within the allowed range
+     *
+     * @param retrantmistCount publish ttl
+     * @return true if valid and false otherwise
+     */
+    public static boolean validateRetransmitCount(final int retrantmistCount) {
+        return retrantmistCount == (retrantmistCount & 0b111);
+    }
+
+    /**
+     * Checks if the publish retransmit interval steps is within the allowed range
+     *
+     * @param intervalSteps publish ttl
+     * @return true if valid and false otherwise
+     */
+    public static boolean validatePublishRetransmitIntervalSteps(final int intervalSteps) {
+        return intervalSteps == (intervalSteps & 0b11111);
+    }
+
+    /**
+     * Returns the remaining time as a string
+     *
+     * @param remainingTime remaining time that for the transition to finish
+     * @return remaining time as string.
+     */
+    public static String getRemainingTime(final int remainingTime) {
+        final int stepResolution = remainingTime >> 6;
+        final int numberOfSteps = remainingTime & 0x3F;
+        switch (stepResolution) {
+            case RESOLUTION_100_MS:
+                return (numberOfSteps * 100) + " milliseconds";
+            case RESOLUTION_1_S:
+                return numberOfSteps + " seconds";
+            case RESOLUTION_10_S:
+                return (numberOfSteps * 10) + " seconds";
+            case RESOLUTION_10_M:
+                return (numberOfSteps * 10) + " minutes";
+            default:
+                return "Unknown";
+        }
+    }
+
+    /**
+     * Returns the remaining time as a string
+     *
+     * @return remaining time as string.
+     */
+    public static String getRemainingTransitionTime(final int stepResolution, final int numberOfSteps) {
+        switch (stepResolution) {
+            case RESOLUTION_100_MS:
+                return (numberOfSteps * 100) + " ms";
+            case RESOLUTION_1_S:
+                return numberOfSteps + " s";
+            case RESOLUTION_10_S:
+                return (numberOfSteps * 10) + " s";
+            case RESOLUTION_10_M:
+                return (numberOfSteps * 10) + " min.";
+            default:
+                return "Unknown";
+        }
+    }
+
+    /**
+     * Returns the remaining time in milliseconds
+     *
+     * @param resolution time resolution
+     * @param steps      number of steps
+     * @return time in milliseconds
+     */
+    public static int getRemainingTime(final int resolution, final int steps) {
+        switch (resolution) {
+            case RESOLUTION_100_MS:
+                return (steps * 100);
+            case RESOLUTION_1_S:
+                return steps * 1000;
+            case RESOLUTION_10_S:
+                return (steps * 10) * 1000;
+            case RESOLUTION_10_M:
+                return (steps * 10) * 1000 * 60;
+        }
+        return 0;
+    }
+
+    public static int getValue(final byte[] bytes) {
+        if (bytes == null || bytes.length != 2)
+            return 0;
+        return unsignedToSigned(unsignedBytesToInt(bytes[0], bytes[1]), 16);
+    }
+
+    /**
+     * Convert a signed byte to an unsigned int.
+     */
+    public static int unsignedByteToInt(byte b) {
+        return b & 0xFF;
+    }
+
+    /**
+     * Convert signed bytes to a 16-bit unsigned int.
+     */
+    public static int unsignedBytesToInt(byte b0, byte b1) {
+        return (unsignedByteToInt(b0) + (unsignedByteToInt(b1) << 8));
+    }
+
+    /**
+     * Convert an unsigned integer value to a two's-complement encoded signed value.
+     */
+
+    private static int unsignedToSigned(int unsigned, int size) {
+        if ((unsigned & (1 << size - 1)) != 0) {
+            unsigned = -1 * ((1 << size - 1) - (unsigned & ((1 << size - 1) - 1)));
+        }
+        return unsigned;
     }
 }

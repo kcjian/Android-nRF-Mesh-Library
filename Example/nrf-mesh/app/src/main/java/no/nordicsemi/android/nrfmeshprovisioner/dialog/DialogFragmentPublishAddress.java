@@ -32,14 +32,11 @@ import android.support.design.widget.TextInputEditText;
 import android.support.design.widget.TextInputLayout;
 import android.support.v4.app.DialogFragment;
 import android.text.Editable;
-import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.method.KeyListener;
 import android.view.LayoutInflater;
 import android.view.View;
-
-import java.util.Locale;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -51,20 +48,29 @@ import no.nordicsemi.android.nrfmeshprovisioner.utils.Utils;
 
 public class DialogFragmentPublishAddress extends DialogFragment {
 
+    private static final String PUBLISH_ADDRESS = "PUBLISH_ADDRESS";
+    private byte[] mPublishAddress;
+
     //UI Bindings
     @BindView(R.id.text_input_layout)
     TextInputLayout unicastAddressInputLayout;
     @BindView(R.id.text_input)
     TextInputEditText unicastAddressInput;
 
-    public static DialogFragmentPublishAddress newInstance() {
+    public static DialogFragmentPublishAddress newInstance(final byte[] publishAddress) {
         DialogFragmentPublishAddress fragmentPublishAddress = new DialogFragmentPublishAddress();
+        final Bundle args = new Bundle();
+        args.putByteArray(PUBLISH_ADDRESS, publishAddress);
+        fragmentPublishAddress.setArguments(args);
         return fragmentPublishAddress;
     }
 
     @Override
     public void onCreate(@Nullable final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if(getArguments() != null) {
+            mPublishAddress = getArguments().getByteArray(PUBLISH_ADDRESS);
+        }
     }
 
     @NonNull
@@ -74,6 +80,11 @@ public class DialogFragmentPublishAddress extends DialogFragment {
 
         //Bind ui
         ButterKnife.bind(this, rootView);
+        final String publishAddress;
+        if(mPublishAddress != null) {
+            publishAddress = MeshParserUtils.bytesToHex(mPublishAddress, false);
+            unicastAddressInput.setText(publishAddress);
+        }
 
         final KeyListener hexKeyListener = new HexKeyListener();
         unicastAddressInputLayout.setHint(getString((R.string.hint_publish_address)));

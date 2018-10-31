@@ -30,16 +30,13 @@ import android.util.Log;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-import no.nordicsemi.android.meshprovisioner.configuration.ProvisionedMeshNode;
-import no.nordicsemi.android.meshprovisioner.messages.AccessMessage;
-import no.nordicsemi.android.meshprovisioner.messages.Message;
 import no.nordicsemi.android.meshprovisioner.utils.MeshParserUtils;
 
-public abstract class AccessLayer {
+abstract class AccessLayer {
 
     private static final String TAG = AccessLayer.class.getSimpleName();
     protected Context mContext;
-    protected ProvisionedMeshNode mMeshNode;
+    ProvisionedMeshNode mMeshNode;
     protected int sequenceNumber;
     protected Handler mHandler;
 
@@ -51,6 +48,13 @@ public abstract class AccessLayer {
      */
     void createMeshMessage(final Message message) {
         createAccessMessage((AccessMessage) message);
+    }
+    /**
+     * Creates a vendor model access message
+     * @param message Access message containing the required opcodes and parameters to create access message pdu.
+     */
+    void createVendorMeshMessage(final Message message) {
+        createCustomAccessMessage((AccessMessage) message);
     }
 
     /**
@@ -86,11 +90,19 @@ public abstract class AccessLayer {
         final int opCode = accessMessage.getOpCode();
         final int companyIdentifier = accessMessage.getCompanyIdentifier();
         final byte[] parameters = accessMessage.getParameters();
-        final byte[] opCodesCompanyIdentifier = MeshParserUtils.getOpCodes(opCode, companyIdentifier);
-        final ByteBuffer accessMessageBuffer = ByteBuffer.allocate(opCodesCompanyIdentifier.length + parameters.length);
-        accessMessageBuffer.put(opCodesCompanyIdentifier);
-        accessMessageBuffer.put(parameters);
-        accessMessage.setAccessPdu(accessMessageBuffer.array());
+        final byte[] opCodesCompanyIdentifier = MeshParserUtils.createVendorOpCode(opCode, companyIdentifier);
+        final ByteBuffer accessMessageBuffer;
+        if(parameters != null) {
+            accessMessageBuffer = ByteBuffer.allocate(opCodesCompanyIdentifier.length + parameters.length);
+            accessMessageBuffer.put(opCodesCompanyIdentifier);
+            accessMessageBuffer.put(parameters);
+        } else {
+            accessMessageBuffer = ByteBuffer.allocate(opCodesCompanyIdentifier.length);
+            accessMessageBuffer.put(opCodesCompanyIdentifier);
+        }
+        final byte [] accessPdu = accessMessageBuffer.array();
+        Log.v(TAG, "Created Access PDU " + MeshParserUtils.bytesToHex(accessPdu, false));
+        accessMessage.setAccessPdu(accessPdu);
     }
 
     /**
@@ -102,7 +114,14 @@ public abstract class AccessLayer {
         //MSB of the first octet defines the length of opcodes.
         //if MSB = 0 length is 1 and so forth
         final byte[] accessPayload = message.getAccessPdu();
-        final int opCodeLength = ((accessPayload[0] >> 7) & 0x01) + 1;
+        final int msb = ((accessPayload[0] & 0xF0) >> 6);
+        final int opCodeLength;
+        if(msb == 0)
+            opCodeLength = 1;
+        else {
+            opCodeLength = msb;
+        }
+        Log.v(TAG, "Opcode length: " + opCodeLength + " Octets");
 
         final int opcode = MeshParserUtils.getOpCode(accessPayload, opCodeLength);
         message.setOpCode(opcode);

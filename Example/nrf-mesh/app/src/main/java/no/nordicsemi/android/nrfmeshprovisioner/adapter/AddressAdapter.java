@@ -35,9 +35,9 @@ import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import no.nordicsemi.android.meshprovisioner.configuration.MeshModel;
+import no.nordicsemi.android.meshprovisioner.transport.MeshModel;
 import no.nordicsemi.android.meshprovisioner.utils.MeshParserUtils;
-import no.nordicsemi.android.nrfmeshprovisioner.ModelConfigurationActivity;
+import no.nordicsemi.android.nrfmeshprovisioner.BaseModelConfigurationActivity;
 import no.nordicsemi.android.nrfmeshprovisioner.R;
 import no.nordicsemi.android.nrfmeshprovisioner.widgets.RemovableViewHolder;
 
@@ -47,7 +47,7 @@ public class AddressAdapter extends RecyclerView.Adapter<AddressAdapter.ViewHold
     private final Context mContext;
     private OnItemClickListener mOnItemClickListener;
 
-    public AddressAdapter(final ModelConfigurationActivity context, final LiveData<MeshModel> meshModelLiveData) {
+    public AddressAdapter(final BaseModelConfigurationActivity context, final LiveData<MeshModel> meshModelLiveData) {
         this.mContext = context;
         meshModelLiveData.observe(context, meshModel -> {
             if(meshModel != null) {

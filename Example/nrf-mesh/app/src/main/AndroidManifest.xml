@@ -19,8 +19,7 @@
   ~ LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
   ~ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
   ~ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  -->
-
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:tools="http://schemas.android.com/tools"
           package="no.nordicsemi.android.nrfmeshprovisioner">
@@ -28,6 +27,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <uses-feature
         android:name="android.hardware.bluetooth_le"
@@ -70,37 +70,38 @@
             android:launchMode="singleTop"/>
         <activity
             android:name=".ManageAppKeysActivity"
-            android:launchMode="singleTop">
-        </activity>
+            android:launchMode="singleTop"/>
         <activity
             android:name=".MeshProvisionerActivity"
-            android:launchMode="singleTop">
-        </activity>
+            android:launchMode="singleTop"/>
         <activity
             android:name=".NodeConfigurationActivity"
-            android:launchMode="singleTop">
-        </activity>
+            android:launchMode="singleTop"/>
         <activity
-            android:name=".ModelConfigurationActivity"
-            android:launchMode="singleTop">
-        </activity>
-
+            android:name=".PublicationSettingsActivity"
+            android:launchMode="singleTop"/>
         <activity
             android:name=".NodeDetailsActivity"
-            android:launchMode="singleTop">
-        </activity>
+            android:launchMode="singleTop"/>
         <activity
             android:name=".ManageNodeAppKeysActivity"
-            android:launchMode="singleTop">
-        </activity>
+            android:launchMode="singleTop"/>
         <activity
             android:name=".BindAppKeysActivity"
-            android:launchMode="singleTop">
-        </activity>
-        <service
-            android:name=".service.MeshService"
-            android:exported="false">
-        </service>
+            android:launchMode="singleTop"/>
+        <activity
+            android:name=".GenericLevelServerActivity"
+            android:launchMode="singleTop"/>
+        <activity
+            android:name=".GenericOnOffServerActivity"
+            android:launchMode="singleTop"/>
+        <activity
+            android:name=".VendorModelActivity"
+            android:launchMode="singleTop"/>
+        <activity
+            android:name=".ModelConfigurationActivity"
+            android:launchMode="singleTop"/>
+
     </application>
 
 </manifest>

@@ -34,11 +34,8 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-
-import java.util.Map;
 
 import javax.inject.Inject;
 
@@ -47,19 +44,14 @@ import butterknife.ButterKnife;
 import dagger.android.AndroidInjector;
 import dagger.android.DispatchingAndroidInjector;
 import dagger.android.support.HasSupportFragmentInjector;
-import no.nordicsemi.android.meshprovisioner.configuration.ProvisionedMeshNode;
 import no.nordicsemi.android.nrfmeshprovisioner.di.Injectable;
-import no.nordicsemi.android.nrfmeshprovisioner.dialog.DialogFragmentResetNetwork;
 import no.nordicsemi.android.nrfmeshprovisioner.utils.Utils;
 import no.nordicsemi.android.nrfmeshprovisioner.viewmodels.SharedViewModel;
 
 public class MainActivity extends AppCompatActivity implements Injectable, HasSupportFragmentInjector,  BottomNavigationView.OnNavigationItemSelectedListener,
         BottomNavigationView.OnNavigationItemReselectedListener,
-        ScannerFragment.ScannerFragmentListener, FragmentManager.OnBackStackChangedListener,
-        NetworkFragment.NetworkFragmentListener,
-        DialogFragmentResetNetwork.DialogFragmentResetNetworkListener {
+        ScannerFragment.ScannerFragmentListener, FragmentManager.OnBackStackChangedListener {
 
-    private static final String TAG = MainActivity.class.getSimpleName();
     private static final String CURRENT_FRAGMENT = "CURRENT_FRAGMENT";
 
     @Inject
@@ -71,7 +63,6 @@ public class MainActivity extends AppCompatActivity implements Injectable, HasSu
     @BindView(R.id.state_scanning)
     View mScanningView;
 
-    private SharedViewModel mViewModel;
     private BottomNavigationView mBottomNavigationView;
 
     private NetworkFragment mNetworkFragment;
@@ -88,7 +79,7 @@ public class MainActivity extends AppCompatActivity implements Injectable, HasSu
         setSupportActionBar(toolbar);
         getSupportActionBar().setTitle(R.string.app_name);
 
-        mViewModel = ViewModelProviders.of(this, mViewModelFactory).get(SharedViewModel.class);
+        final SharedViewModel mViewModel = ViewModelProviders.of(this, mViewModelFactory).get(SharedViewModel.class);
 
         mNetworkFragment = (NetworkFragment) getSupportFragmentManager().findFragmentById(R.id.fragment_network);
         mScannerFragment = (ScannerFragment) getSupportFragmentManager().findFragmentById(R.id.fragment_scanner);
@@ -98,16 +89,6 @@ public class MainActivity extends AppCompatActivity implements Injectable, HasSu
         mBottomNavigationView.setOnNavigationItemSelectedListener(this);
         mBottomNavigationView.setOnNavigationItemReselectedListener(this);
 
-        mViewModel.getProvisionedNodesLiveData().observe(this, provisionedNodesLiveData -> {
-            invalidateOptionsMenu();
-        });
-
-        mViewModel.isConnected().observe(this, isConnected -> {
-            if(isConnected != null) {
-                invalidateOptionsMenu();
-            }
-        });
-
         if(savedInstanceState == null) {
             onNavigationItemSelected(mBottomNavigationView.getMenu().findItem(R.id.action_network));
         } else {
@@ -116,44 +97,8 @@ public class MainActivity extends AppCompatActivity implements Injectable, HasSu
     }
 
     @Override
-    public boolean onCreateOptionsMenu(final Menu menu) {
-        if(!mViewModel.getProvisionedNodesLiveData().getProvisionedNodes().isEmpty()){
-            if(mNetworkFragment.isVisible()) {
-                if (!mViewModel.isConenctedToMesh()) {
-                    getMenuInflater().inflate(R.menu.connect, menu);
-                } else {
-                    getMenuInflater().inflate(R.menu.disconnect, menu);
-                }
-            } else if(mSettingsFragment.isVisible()){
-                getMenuInflater().inflate(R.menu.reset_network, menu);
-            } else {
-                return false;
-            }
-        } else {
-            return false;
-        }
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(final MenuItem item) {
-        final int id = item.getItemId();
-        switch (id) {
-            case R.id.action_connect:
-                final Intent scannerActivity = new Intent(this, ProvisionedNodesScannerActivity.class);
-                scannerActivity.putExtra(ProvisionedNodesScannerActivity.NETWORK_ID, mViewModel.getNetworkId());
-                startActivity(scannerActivity);
-                return true;
-            case R.id.action_disconnect:
-                mViewModel.disconnect();
-                return true;
-            case R.id.action_reset_network:
-                final DialogFragmentResetNetwork dialogFragmentResetNetwork = DialogFragmentResetNetwork.
-                        newInstance(getString(R.string.title_reset_network), getString(R.string.message_reset_network));
-                        dialogFragmentResetNetwork.show(getSupportFragmentManager(), null);
-                return true;
-        }
-        return false;
+    protected void onDestroy() {
+        super.onDestroy();
     }
 
     @Override
@@ -211,15 +156,5 @@ public class MainActivity extends AppCompatActivity implements Injectable, HasSu
     @Override
     public AndroidInjector<Fragment> supportFragmentInjector() {
         return mDispatchingAndroidInjector;
-    }
-
-    @Override
-    public void onProvisionedMeshNodeSelected() {
-
-    }
-
-    @Override
-    public void onNetworkReset() {
-        mViewModel.resetMeshNetwork();
     }
 }

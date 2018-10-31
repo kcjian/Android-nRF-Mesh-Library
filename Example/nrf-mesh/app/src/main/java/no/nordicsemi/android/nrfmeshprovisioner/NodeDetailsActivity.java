@@ -39,7 +39,7 @@ import android.widget.Toast;
 import java.text.DateFormat;
 
 import butterknife.ButterKnife;
-import no.nordicsemi.android.meshprovisioner.configuration.ProvisionedMeshNode;
+import no.nordicsemi.android.meshprovisioner.transport.ProvisionedMeshNode;
 import no.nordicsemi.android.meshprovisioner.utils.CompanyIdentifiers;
 import no.nordicsemi.android.meshprovisioner.utils.CompositionDataParser;
 import no.nordicsemi.android.meshprovisioner.utils.MeshParserUtils;
@@ -70,7 +70,7 @@ public class NodeDetailsActivity extends AppCompatActivity implements Injectable
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setTitle(node.getNodeName());
 
-        final View containerNodeName = findViewById(R.id.container_name);
+        final View containerNodeName = findViewById(R.id.container_element_count);
         containerNodeName.setClickable(false);
         final TextView nodeName = containerNodeName.findViewById(R.id.text);
         nodeName.setText(node.getNodeName());
@@ -86,7 +86,7 @@ public class NodeDetailsActivity extends AppCompatActivity implements Injectable
         final TextView nodeIdentifier = containerNodeIdentifier.findViewById(R.id.text);
         nodeIdentifier.setText(node.getNodeIdentifier());
 
-        final View containerUnicastAddress = findViewById(R.id.container_unicast_address);
+        final View containerUnicastAddress = findViewById(R.id.container_supported_algorithm);
         containerUnicastAddress.setClickable(false);
         final TextView unicastAddress = containerUnicastAddress.findViewById(R.id.text);
         unicastAddress.setText(MeshParserUtils.bytesToHex(node.getUnicastAddress(), false));
